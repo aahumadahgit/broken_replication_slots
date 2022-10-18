@@ -7,9 +7,9 @@ AWS_RDS_DNS = 'rds.amazonaws.com'
 
 
 def get_db_identifier():
-    db_host = input('Insert database identifier, hostname or endpoint: \n').lower().replace(" ", "")
+    db_host = input('Insert database identifier, hostname or endpoint:\n').lower().strip()
     if 'replica' in db_host:
-        print('This is a read replica instance, check the primary instance')
+        print('\nThis is a read replica instance, please, check the primary instance instead')
     else:
         return db_host
 
@@ -31,8 +31,8 @@ def search_db_instance():
                 rds_db_info = {'db_identifier': db_identifier, 'db_endpoint': db_rds_endpoint, 'db_port': db_port}
                 return rds_db_info
             else:
-                print("Endpoint address doesn't match with any existed database")
+                print("\nEndpoint address doesn't match with any existed database")
         except Exception as e:
             print(e)
     else:
-        print('Please, indicate a valid instance')
+        print('\nPlease, indicate a valid instance')
