@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2 import connection
+from psycopg2.extensions import connection
 from psycopg2.extras import DictCursor
 from get_db_parameters import db_parameters_dict
 from tabulate import tabulate
@@ -23,14 +23,14 @@ def make_conn() -> connection:
         print('I am unable to connect to the database')
 
 
-def fetch_data(query: str) -> list:
+def fetch_data(conex: connection, query: str) -> list:
     cursor: DictCursor = conex.cursor(cursor_factory=DictCursor)
     cursor.execute(query)
     raw: list = cursor.fetchall()
     return raw
 
 
-def get_replication_slots() -> None:
+def get_replication_slots(conex: connection) -> None:
     replication_slots_query = 'SELECT active_pid AS "PID", slot_name AS "Slot name", ' \
                               'pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(),restart_lsn)) ' \
                               'AS "Replication slot lag", ' \
@@ -38,7 +38,7 @@ def get_replication_slots() -> None:
                               'AS "Active", pg_stat_replication.reply_time AS "Last reply from standby" ' \
                               'FROM pg_replication_slots JOIN pg_stat_replication ' \
                               'ON pg_replication_slots.active_pid = pg_stat_replication.pid ;'
-    query_result = fetch_data(replication_slots_query)
+    query_result = fetch_data(conex, replication_slots_query)
     if len(query_result) > 0:
         valid_pid_list = list()
         for x in query_result:
@@ -50,31 +50,34 @@ def get_replication_slots() -> None:
             valid_pid_list.append(str(x['PID']))
         slots_query_result = input('Do you wanna terminate a replication slot? (Type y, yes or n, no)\n').lower()
         if slots_query_result.lower() in ['y', 'yes']:
-            terminate_replication_slot(valid_pid_list)
+            terminate_replication_slot(conex, valid_pid_list)
         elif slots_query_result.lower() in ['n', 'no']:
             print('No replication slot will be deleted')
         else:
             print('Wrong input')
     else:
         print("This instance doesn't have replication slots")
-    conex.close()
 
 
-def terminate_replication_slot(valid_pid_list: list) -> None:
+def terminate_replication_slot(conex: connection, valid_pid_list: list) -> None:
     replication_slot_pid = input(
         'Please, insert PID of the replication slot that you want to terminate:\n').strip()
     if replication_slot_pid.isdigit() and replication_slot_pid in valid_pid_list:
         query_terminate_slots = f"SELECT pg_terminate_backend ({replication_slot_pid});"
         try:
-            terminate_query_result = fetch_data(query_terminate_slots)
+            terminate_query_result = fetch_data(conex, query_terminate_slots)
             if terminate_query_result[0][0]:
                 print('PID ' + replication_slot_pid + ' was deleted')
         except Exception as e:
             print(e)
     else:
         print('Invalid input or PID, retry')
+
+
+def main():
+    conex = make_conn()
+    get_replication_slots(conex)
     conex.close()
 
 
-conex = make_conn()
-get_replication_slots()
+main()
