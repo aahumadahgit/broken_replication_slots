@@ -1,6 +1,12 @@
 import boto3
 
+# Run this script with the AWS_PROFILE tag and the name of the profile in the .aws/config, for example:
+# AWS_PROFILE=infradev
 rds_client = boto3.client('rds')
+# Comment previous line and uncomment the following lines that contains the values from session and client,
+# add the region to execute this script in the tf-bastion, for example: region_name='us-east-1'
+# session = boto3.Session(region_name='region')
+# rds_client = session.client('rds')
 
 # db_instance_filters = [{'Name': 'engine', 'Values': ['postgres']}]
 AWS_RDS_DNS = 'rds.amazonaws.com'
