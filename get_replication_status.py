@@ -30,7 +30,7 @@ def fetch_data(conex: connection, query: str) -> list:
     return raw
 
 
-def get_replication_slots(conex: connection) -> None:
+def get_replication_query(conex: connection) -> str:
     replication_slots_query = 'SELECT active_pid AS "PID", slot_name AS "Slot name", ' \
                               'pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(),restart_lsn)) ' \
                               'AS "Replication slot lag", ' \
@@ -38,6 +38,25 @@ def get_replication_slots(conex: connection) -> None:
                               'AS "Active", pg_stat_replication.reply_time AS "Last reply from standby" ' \
                               'FROM pg_replication_slots JOIN pg_stat_replication ' \
                               'ON pg_replication_slots.active_pid = pg_stat_replication.pid ;'
+    replication_slots_query_pg11 = 'SELECT active_pid AS "PID", slot_name AS "Slot name", ' \
+                                   'pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(),restart_lsn)) ' \
+                                   'AS "Replication slot lag", CASE active ' \
+                                   "WHEN True THEN 'True (healthy)' WHEN False THEN 'False (unhealthy)' END " \
+                                   'AS "Active", CASE WHEN pg_stat_replication.replay_lag IS NULL ' \
+                                   "THEN 'Standby caught up' END " \
+                                   'AS "Last reply from standby"  ' \
+                                   'FROM pg_replication_slots JOIN pg_stat_replication ' \
+                                   'ON pg_replication_slots.active_pid = pg_stat_replication.pid ;'
+    query_pg_version = 'SELECT VERSION();'
+    query_version_result = fetch_data(conex, query_pg_version)
+    if query_version_result[0][0].startswith('PostgreSQL 11'):
+        return replication_slots_query_pg11
+    else:
+        return replication_slots_query
+
+
+def get_replication_slots(conex: connection) -> None:
+    replication_slots_query = get_replication_query(conex)
     query_result = fetch_data(conex, replication_slots_query)
     if len(query_result) > 0:
         valid_pid_list = list()
@@ -76,6 +95,7 @@ def terminate_replication_slot(conex: connection, valid_pid_list: list) -> None:
 
 def main():
     conex = make_conn()
+    get_replication_query(conex)
     get_replication_slots(conex)
     conex.close()
 
